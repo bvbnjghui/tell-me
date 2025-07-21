@@ -67,20 +67,18 @@
             <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50 text-left">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">提供對話記錄 (選填，提供完整上下文)</h3>
 
-                <div class="mb-4">
-                    <label for="recordTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇對話記錄方式：</label>
-                    <select
-                        id="recordTypeSelect"
-                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 text-lg"
-                    >
-                        <option value="none">無</option>
-                        <option value="text">貼上文字記錄</option>
-                        <option value="image">上傳對話截圖</option>
-                        <option value="file">上傳文本檔案</option>
-                    </select>
+                <div class="flex flex-wrap items-center mb-4">
+                    <input type="radio" id="recordType_text" name="recordType" value="text" class="mr-2" checked>
+                    <label for="recordType_text" class="text-gray-700 font-bold mr-6">貼上文字記錄</label>
+
+                    <input type="radio" id="recordType_image" name="recordType" value="image" class="mr-2">
+                    <label for="recordType_image" class="text-gray-700 font-bold mr-6">上傳對話截圖</label>
+
+                    <input type="radio" id="recordType_file" name="recordType" value="file" class="mr-2">
+                    <label for="recordType_file" class="text-gray-700 font-bold">上傳文本檔案</label>
                 </div>
 
-                <div id="textRecordContainer" class="mb-4 hidden">
+                <div id="textRecordContainer" class="mb-4">
                     <label for="conversationHistoryTextInput" class="block text-gray-700 text-sm font-bold mb-2">在此貼上您完整的對話文字記錄：</label>
                     <textarea
                         id="conversationHistoryTextInput"
@@ -247,7 +245,7 @@ B: 沒什麼，就工作上的事。
         let uploadedImageBase64 = null; // 用於儲存 Base64 圖片數據
         let uploadedTextFileContent = null; // 用於儲存文本檔案內容
 
-        const recordTypeSelect = document.getElementById('recordTypeSelect'); // 變更為 select 元素
+        const recordTypeSelect = document.getElementById('recordTypeSelect');
         const textRecordContainer = document.getElementById('textRecordContainer');
         const imageUploadContainer = document.getElementById('imageUploadContainer');
         const fileUploadContainer = document.getElementById('fileUploadContainer');
@@ -401,20 +399,22 @@ B: 沒什麼，就工作上的事。
             parseButton.classList.add('opacity-70', 'cursor-not-allowed');
 
             try {
-                const cloudRunServiceUrl = 'https://mindreader-338857749184.europe-west1.run.app/proxy'; // 佔位符
+                const cloudRunServiceUrl = '__CLOUD_RUN_SERVICE_URL__/proxy'; // 佔位符
+                const apiKey = '__FRONTEND_API_KEY__'; // <-- 佔位符，將在部署時被替換
 
                 const payload = {
-                    conversation_history_text: payloadTextRecord || payloadTextFileContent || null, // 整合後的對話記錄文本 (優先檔案，其次貼上)
+                    conversation_history_text: payloadTextRecord || payloadTextFileContent || null,
                     current_dialog_text: currentDialogText || null,
                     context: contextText || null,
                     personality_type: personalityTypeText || null,
-                    uploaded_image_base64: payloadImageBase64 // 只有圖片模式下才會有值
+                    uploaded_image_base64: payloadImageBase64
                 };
 
                 const response = await fetch(cloudRunServiceUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'x-api-key': apiKey // <-- 新增 API 金鑰標頭
                     },
                     body: JSON.stringify(payload)
                 });
@@ -432,12 +432,11 @@ B: 沒什麼，就工作上的事。
                 document.getElementById('sentimentDescription').textContent = results.sentiment.description;
 
                 // 更新潛在涵義列表
-                const meaningList = document.getElementById('meaningList');
-                meaningList.innerHTML = ''; // 清空舊內容
+                document.getElementById('meaningList').innerHTML = '';
                 results.potential_meanings.forEach(item => {
                     const li = document.createElement('li');
                     li.innerHTML = `<span class="font-semibold">${item.meaning}</span>：${item.context} (依據：${item.basis})`;
-                    meaningList.appendChild(li);
+                    document.getElementById('meaningList').appendChild(li);
                 });
 
                 // 更新溝通建議、常見誤區和相關關鍵字
@@ -447,7 +446,7 @@ B: 沒什麼，就工作上的事。
 
                 // 更新回覆參考列表
                 const replySuggestionsList = document.getElementById('replySuggestionsList');
-                replySuggestionsList.innerHTML = ''; // 清空舊內容
+                replySuggestionsList.innerHTML = '';
                 if (results.reply_suggestions && results.reply_suggestions.length > 0) {
                     results.reply_suggestions.forEach(suggestion => {
                         const li = document.createElement('li');
@@ -461,14 +460,13 @@ B: 沒什麼，就工作上的事。
                 }
 
 
-                resultSection.classList.remove('hidden'); // 顯示結果區塊
-                resultSection.scrollIntoView({ behavior: 'smooth' }); // 平滑捲動到結果區塊
+                document.getElementById('resultSection').classList.remove('hidden');
+                document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
 
             } catch (error) {
                 console.error('解析對話時發生錯誤:', error);
                 showMessageBox(`解析失敗：${error.message || '未知錯誤'}`);
             } finally {
-                // 隱藏載入指示器並啟用按鈕
                 buttonText.classList.remove('hidden');
                 loadingSpinner.classList.add('hidden');
                 parseButton.disabled = false;
