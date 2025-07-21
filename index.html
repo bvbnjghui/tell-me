@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>讀心術 - 對話意義解析器</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Google Fonts - Inter 字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* 淺灰色背景 */
+            color: #333; /* 深色文字 */
+        }
+        /* 自訂焦點樣式 */
+        textarea:focus, button:focus, select:focus, input[type="file"]:focus, input[type="text"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); /* 藍色光暈 */
+        }
+        /* 訊息框樣式 */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .message-box-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .message-box-content button {
+            margin-top: 1rem;
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+    <!-- 主要內容區塊 -->
+    <main class="flex-grow container mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center">
+        <section class="bg-white rounded-xl shadow-lg p-6 md:p-10 w-full max-w-3xl text-center">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 leading-tight">
+                讀懂弦外之音，溝通零距離
+            </h1>
+            <p class="text-lg text-gray-600 mb-8">
+                輸入對話或關鍵字，AI 為您解析背後涵義，助您減少溝通誤會。
+            </p>
+
+            <!-- 對話記錄輸入區塊 (整合) -->
+            <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50 text-left">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">提供對話記錄 (選填，提供完整上下文)</h3>
+
+                <div class="mb-4">
+                    <label for="recordTypeSelect" class="block text-gray-700 text-sm font-bold mb-2">選擇對話記錄方式：</label>
+                    <select
+                        id="recordTypeSelect"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 text-lg"
+                    >
+                        <option value="none">無</option>
+                        <option value="text">貼上文字記錄</option>
+                        <option value="image">上傳對話截圖</option>
+                        <option value="file">上傳文本檔案</option>
+                    </select>
+                </div>
+
+                <div id="textRecordContainer" class="mb-4 hidden">
+                    <label for="conversationHistoryTextInput" class="block text-gray-700 text-sm font-bold mb-2">在此貼上您完整的對話文字記錄：</label>
+                    <textarea
+                        id="conversationHistoryTextInput"
+                        class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 resize-y min-h-[150px] text-lg"
+                        placeholder="例如：
+A: 你今天好嗎？
+B: 還好，有點累。
+A: 怎麼了？
+B: 沒什麼，就工作上的事。
+..."
+                        rows="6"
+                    ></textarea>
+                </div>
+
+                <div id="imageUploadContainer" class="mb-4 hidden">
+                    <label for="imageUpload" class="block text-gray-700 text-sm font-bold mb-2">上傳對話截圖 (.png, .jpg, .jpeg)：</label>
+                    <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/jpg" class="w-full text-lg border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300">
+                    <p id="fileNameDisplay_image" class="text-sm text-gray-500 mt-1 hidden">已選擇檔案: <span class="font-medium"></span></p>
+                </div>
+
+                <div id="fileUploadContainer" class="mb-4 hidden">
+                    <label for="textFileUpload" class="block text-gray-700 text-sm font-bold mb-2">上傳文本檔案 (.txt, .doc, .docx, .pdf 等)：</label>
+                    <input type="file" id="textFileUpload" accept=".txt,.doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" class="w-full text-lg border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300">
+                    <p id="fileNameDisplay_file" class="text-sm text-gray-500 mt-1 hidden">已選擇檔案: <span class="font-medium"></span></p>
+                </div>
+            </div>
+
+            <!-- 當前對話文本區塊 -->
+            <div class="mb-4 text-left">
+                <label for="currentDialogInput" class="block text-gray-700 text-sm font-bold mb-2">請輸入您想分析的「當前對話文本」：</label>
+                <textarea
+                    id="currentDialogInput"
+                    class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 resize-y min-h-[100px] text-lg"
+                    placeholder="例如：『沒什麼，就工作上的事。』 (這是對方的某一句話)"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <!-- 情境輸入區塊 (選填) -->
+            <div class="mb-4 text-left">
+                <label for="contextInput" class="block text-gray-700 text-sm font-bold mb-2">情境 (選填)：</label>
+                <input
+                    type="text"
+                    id="contextInput"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 text-lg"
+                    placeholder="例如：職場會議、朋友聊天、家庭聚會"
+                />
+            </div>
+
+            <!-- 人格類型輸入區塊 -->
+            <div class="mb-8 text-left">
+                <label for="personalityTypeInput" class="block text-gray-700 text-sm font-bold mb-2">對話者的人格類型 (選填，輔助判斷)：</label>
+                <select
+                    id="personalityTypeInput"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300 text-lg"
+                >
+                    <option value="">請選擇 (無)</option>
+                    <option value="迴避型人格">迴避型 (Avoidant)</option>
+                    <option value="焦慮型人格">焦慮型 (Anxious)</option>
+                    <option value="安全型人格">安全型 (Secure)</option>
+                    <option value="混亂型人格">混亂型 (Disorganized)</option>
+                    <option value="內向">內向 (Introvert)</option>
+                    <option value="外向">外向 (Extrovert)</option>
+                    <option value="高敏感">高敏感 (HSP)</option>
+                    <option value="理性">理性 (Rational)</option>
+                    <option value="感性">感性 (Emotional)</option>
+                </select>
+            </div>
+
+            <!-- 解析按鈕 -->
+            <button
+                id="parseButton"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full text-xl shadow-lg transform hover:scale-105 transition duration-300 ease-in-out relative"
+            >
+                <span id="buttonText">解析</span>
+                <div id="loadingSpinner" class="hidden absolute inset-0 flex items-center justify-center">
+                    <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </button>
+        </section>
+
+        <!-- 解析結果區塊 (初始隱藏，待解析後顯示) -->
+        <section id="resultSection" class="hidden bg-white rounded-xl shadow-lg p-6 md:p-10 w-full max-w-3xl mt-8 text-left">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">解析結果</h2>
+            <div id="resultContent" class="text-gray-700 space-y-4">
+                <!-- 解析結果將會動態載入到這裡 -->
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">情緒分析：</h3>
+                    <p id="sentimentLabel" class="text-lg"></p>
+                    <p id="sentimentDescription" class="text-base text-gray-600"></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">潛在涵義：</h3>
+                    <ul id="meaningList" class="list-disc list-inside space-y-2">
+                        <!-- 涵義列表將動態載入 -->
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">溝通建議：</h3>
+                    <p id="adviceResult" class="text-lg"></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">常見誤區：</h3>
+                    <p id="pitfallsResult" class="text-lg"></p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">相關關鍵字：</h3>
+                    <p id="keywordsResult" class="text-lg"></p>
+                </div>
+                <!-- 新增回覆參考區塊 -->
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-700 mb-2">回覆參考：</h3>
+                    <ul id="replySuggestionsList" class="list-disc list-inside space-y-2">
+                        <!-- 回覆參考列表將動態載入 -->
+                    </ul>
+                </div>
+            </div>
+            <button
+                id="copyResultButton"
+                class="mt-8 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-full text-md transition duration-300 ease-in-out"
+            >
+                複製結果
+            </button>
+        </section>
+    </main>
+
+    <!-- 底部資訊 -->
+    <footer class="bg-gray-800 text-white py-6 mt-auto">
+        <div class="container mx-auto text-center text-sm">
+            <p>&copy; 2025 讀心術. All rights reserved.</p>
+            <div class="mt-2">
+                <a href="#" class="text-gray-400 hover:text-white mx-2">隱私權政策</a> |
+                <a href="#" class="text-gray-400 hover:text-white mx-2">服務條款</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 自訂訊息框 -->
+    <div id="messageBoxOverlay" class="message-box-overlay hidden">
+        <div class="message-box-content">
+            <p id="messageBoxText" class="text-lg font-semibold mb-4"></p>
+            <button id="messageBoxCloseButton">確定</button>
+        </div>
+    </div>
+
+    <script>
+        // 自訂訊息框顯示函式
+        function showMessageBox(message) {
+            const overlay = document.getElementById('messageBoxOverlay');
+            const text = document.getElementById('messageBoxText');
+            const closeButton = document.getElementById('messageBoxCloseButton');
+
+            text.textContent = message;
+            overlay.classList.remove('hidden');
+
+            closeButton.onclick = () => {
+                overlay.classList.add('hidden');
+            };
+        }
+
+        let uploadedImageBase64 = null; // 用於儲存 Base64 圖片數據
+        let uploadedTextFileContent = null; // 用於儲存文本檔案內容
+
+        const recordTypeSelect = document.getElementById('recordTypeSelect'); // 變更為 select 元素
+        const textRecordContainer = document.getElementById('textRecordContainer');
+        const imageUploadContainer = document.getElementById('imageUploadContainer');
+        const fileUploadContainer = document.getElementById('fileUploadContainer');
+        
+        const conversationHistoryTextInput = document.getElementById('conversationHistoryTextInput');
+        const imageUpload = document.getElementById('imageUpload');
+        const textFileUpload = document.getElementById('textFileUpload');
+        
+        const fileNameDisplayImage = document.getElementById('fileNameDisplay_image');
+        const fileNameDisplayFile = document.getElementById('fileNameDisplay_file');
+
+        // 初始顯示狀態和清空所有相關輸入
+        function updateRecordTypeDisplay() {
+            // 隱藏所有容器
+            textRecordContainer.classList.add('hidden');
+            imageUploadContainer.classList.add('hidden');
+            fileUploadContainer.classList.add('hidden');
+
+            // 清空所有相關輸入
+            conversationHistoryTextInput.value = '';
+            imageUpload.value = '';
+            uploadedImageBase64 = null;
+            textFileUpload.value = '';
+            uploadedTextFileContent = null;
+            fileNameDisplayImage.classList.add('hidden');
+            fileNameDisplayFile.classList.add('hidden');
+
+            const selectedType = recordTypeSelect.value;
+
+            if (selectedType === 'text') {
+                textRecordContainer.classList.remove('hidden');
+            } else if (selectedType === 'image') {
+                imageUploadContainer.classList.remove('hidden');
+            } else if (selectedType === 'file') {
+                fileUploadContainer.classList.remove('hidden');
+            }
+        }
+
+        // 監聽 Select 變更
+        recordTypeSelect.addEventListener('change', updateRecordTypeDisplay);
+
+        // 初始載入時執行一次
+        updateRecordTypeDisplay();
+
+
+        // 處理圖片上傳
+        imageUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (!file.type.startsWith('image/')) {
+                    showMessageBox('請上傳圖片檔案 (PNG, JPG, JPEG)。');
+                    event.target.value = '';
+                    fileNameDisplayImage.classList.add('hidden');
+                    uploadedImageBase64 = null;
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) { // 限制檔案大小 (例如 5MB)
+                    showMessageBox('圖片檔案大小不能超過 5MB。');
+                    event.target.value = '';
+                    fileNameDisplayImage.classList.add('hidden');
+                    uploadedImageBase64 = null;
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageBase64 = e.target.result.split(',')[1]; // 移除 "data:image/jpeg;base64," 等前綴
+                    fileNameDisplayImage.querySelector('span').textContent = file.name;
+                    fileNameDisplayImage.classList.remove('hidden');
+                };
+                reader.onerror = function() {
+                    showMessageBox('讀取檔案失敗。');
+                    uploadedImageBase64 = null;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                fileNameDisplayImage.classList.add('hidden');
+                uploadedImageBase64 = null;
+            }
+        });
+
+        // 處理文本檔案上傳
+        textFileUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // 限制檔案大小 (例如 2MB)
+                if (file.size > 2 * 1024 * 1024) {
+                    showMessageBox('文本檔案大小不能超過 2MB。');
+                    event.target.value = '';
+                    fileNameDisplayFile.classList.add('hidden');
+                    uploadedTextFileContent = null;
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedTextFileContent = e.target.result;
+                    fileNameDisplayFile.querySelector('span').textContent = file.name;
+                    fileNameDisplayFile.classList.remove('hidden');
+                };
+                reader.onerror = function() {
+                    showMessageBox('讀取檔案失敗。');
+                    uploadedTextFileContent = null;
+                };
+                reader.readAsText(file); // 讀取為文本
+            } else {
+                fileNameDisplayFile.classList.add('hidden');
+                uploadedTextFileContent = null;
+            }
+        });
+
+
+        document.getElementById('parseButton').addEventListener('click', async function() {
+            const currentDialogInput = document.getElementById('currentDialogInput');
+            const contextInput = document.getElementById('contextInput');
+            const personalityTypeInput = document.getElementById('personalityTypeInput');
+            
+            const resultSection = document.getElementById('resultSection');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const buttonText = document.getElementById('buttonText');
+            const parseButton = document.getElementById('parseButton');
+
+            const currentDialogText = currentDialogInput.value.trim();
+            const contextText = contextInput.value.trim();
+            const personalityTypeText = personalityTypeInput.value.trim();
+            
+            let payloadImageBase64 = null;
+            let payloadTextRecord = null; // 用於貼上的文字記錄
+            let payloadTextFileContent = null; // 用於上傳的文本檔案內容
+
+            // 根據 Select 選擇來收集數據
+            const selectedRecordType = recordTypeSelect.value;
+            if (selectedRecordType === 'text') {
+                payloadTextRecord = conversationHistoryTextInput.value.trim();
+            } else if (selectedRecordType === 'image') {
+                payloadImageBase64 = uploadedImageBase64;
+            } else if (selectedRecordType === 'file') {
+                payloadTextFileContent = uploadedTextFileContent;
+            }
+
+            // 至少需要當前對話文本，或者有對話記錄 (文字、圖片或檔案)
+            if (!currentDialogText && !payloadTextRecord && !payloadImageBase64 && !payloadTextFileContent) {
+                showMessageBox('請輸入您想分析的當前對話文本，或提供對話記錄 (貼上文字、上傳截圖或上傳文本檔案) 才能解析喔！');
+                return;
+            }
+
+            // 顯示載入指示器並禁用按鈕
+            buttonText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            parseButton.disabled = true;
+            parseButton.classList.add('opacity-70', 'cursor-not-allowed');
+
+            try {
+                const cloudRunServiceUrl = 'https://mindreader-338857749184.europe-west1.run.app/proxy'; // 佔位符
+
+                const payload = {
+                    conversation_history_text: payloadTextRecord || payloadTextFileContent || null, // 整合後的對話記錄文本 (優先檔案，其次貼上)
+                    current_dialog_text: currentDialogText || null,
+                    context: contextText || null,
+                    personality_type: personalityTypeText || null,
+                    uploaded_image_base64: payloadImageBase64 // 只有圖片模式下才會有值
+                };
+
+                const response = await fetch(cloudRunServiceUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `API 請求失敗，狀態碼: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const results = data.analysis_results;
+
+                // 更新情緒分析
+                document.getElementById('sentimentLabel').textContent = results.sentiment.label;
+                document.getElementById('sentimentDescription').textContent = results.sentiment.description;
+
+                // 更新潛在涵義列表
+                const meaningList = document.getElementById('meaningList');
+                meaningList.innerHTML = ''; // 清空舊內容
+                results.potential_meanings.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="font-semibold">${item.meaning}</span>：${item.context} (依據：${item.basis})`;
+                    meaningList.appendChild(li);
+                });
+
+                // 更新溝通建議、常見誤區和相關關鍵字
+                document.getElementById('adviceResult').textContent = results.communication_advice;
+                document.getElementById('pitfallsResult').textContent = results.common_pitfalls;
+                document.getElementById('keywordsResult').textContent = results.related_keywords.join('、');
+
+                // 更新回覆參考列表
+                const replySuggestionsList = document.getElementById('replySuggestionsList');
+                replySuggestionsList.innerHTML = ''; // 清空舊內容
+                if (results.reply_suggestions && results.reply_suggestions.length > 0) {
+                    results.reply_suggestions.forEach(suggestion => {
+                        const li = document.createElement('li');
+                        li.textContent = suggestion;
+                        replySuggestionsList.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.textContent = '目前沒有可用的回覆參考。';
+                    replySuggestionsList.appendChild(li);
+                }
+
+
+                resultSection.classList.remove('hidden'); // 顯示結果區塊
+                resultSection.scrollIntoView({ behavior: 'smooth' }); // 平滑捲動到結果區塊
+
+            } catch (error) {
+                console.error('解析對話時發生錯誤:', error);
+                showMessageBox(`解析失敗：${error.message || '未知錯誤'}`);
+            } finally {
+                // 隱藏載入指示器並啟用按鈕
+                buttonText.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+                parseButton.disabled = false;
+                parseButton.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+        });
+
+        document.getElementById('copyResultButton').addEventListener('click', function() {
+            const sentimentLabel = document.getElementById('sentimentLabel').textContent;
+            const sentimentDescription = document.getElementById('sentimentDescription').textContent;
+            const meaningItems = Array.from(document.querySelectorAll('#meaningList li')).map(li => li.textContent);
+            const adviceResult = document.getElementById('adviceResult').textContent;
+            const pitfallsResult = document.getElementById('pitfallsResult').textContent;
+            const keywordsResult = document.getElementById('keywordsResult').textContent;
+            const replySuggestions = Array.from(document.querySelectorAll('#replySuggestionsList li')).map(li => li.textContent);
+
+            let resultText = `情緒分析：${sentimentLabel} (${sentimentDescription})\n`;
+            resultText += `潛在涵義：\n${meaningItems.map(item => `  - ${item}`).join('\n')}\n`;
+            resultText += `溝通建議：${adviceResult}\n`;
+            resultText += `常見誤區：${pitfallsResult}\n`;
+            resultText += `相關關鍵字：${keywordsResult}\n`;
+            resultText += `回覆參考：\n${replySuggestions.map(item => `  - ${item}`).join('\n')}`;
+
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = resultText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy'); // 複製到剪貼簿
+            document.body.removeChild(tempTextArea);
+            showMessageBox('解析結果已複製到剪貼簿！');
+        });
+    </script>
+</body>
+</html>
