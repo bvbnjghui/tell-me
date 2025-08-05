@@ -8,6 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 載入 Google Fonts - Inter 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- PWA 相關連結 -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/images/icon-192x192.png">
+    <meta name="theme-color" content="#2196F3"/>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -230,6 +234,19 @@ B: 沒什麼，就工作上的事。
     </div>
 
     <script>
+        // PWA: Service Worker 註冊
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker 註冊成功，範圍:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker 註冊失敗:', error);
+                    });
+            });
+        }
+
         // 自訂訊息框顯示函式
         function showMessageBox(message) {
             const overlay = document.getElementById('messageBoxOverlay');
