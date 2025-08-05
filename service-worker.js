@@ -1,9 +1,9 @@
 const CACHE_NAME = 'mindreader-pwa-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/images/icon-192x192.png',
-  '/images/icon-512x512.png'
+  'https://bvbnjghui.github.io/tell-me/',
+  'https://bvbnjghui.github.io/tell-me/index.html',
+  'https://bvbnjghui.github.io/tell-me/images/icon-192x192.png',
+  'https://bvbnjghui.github.io/tell-me/images/icon-512x512.png'
 ];
 
 self.addEventListener('install', event => {
