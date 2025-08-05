@@ -237,7 +237,7 @@ B: 沒什麼，就工作上的事。
         // PWA: Service Worker 註冊
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                navigator.serviceWorker.register('https://bvbnjghui.github.io/tell-me/service-worker.js')
                     .then(registration => {
                         console.log('Service Worker 註冊成功，範圍:', registration.scope);
                     })
